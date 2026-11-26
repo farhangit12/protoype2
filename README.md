@@ -46,8 +46,8 @@ Hobby plan is for non-commercial use, so check Vercel's terms before using it fo
 
 ## How the boardroom works (`src/app/api/boardroom/route.ts`)
 1. The founder's query and the business (with its saved stage) go to the server.
-2. The **Strategist** (larger Groq model) reads it and picks the specialists it needs, with one task each.
-3. Chosen **specialists** (smaller Groq model) work in parallel. Status tags update live:
+2. The **Strategist** (`openai/gpt-oss-120b` on Groq) reads it and picks the specialists it needs, with one task each.
+3. Chosen **specialists** (`openai/gpt-oss-20b`) work in parallel. Status tags update live:
    Waiting → Working → Completed, or Skipped.
 4. The Strategist reviews their internal findings and writes **one** answer, with a verdict:
    Viable, Viable with conditions, or Not workable as proposed. Specialists never answer the founder.

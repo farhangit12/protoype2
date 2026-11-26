@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         const planRaw = await groqChat({
           model: MODELS.strategist,
           json: true,
-          maxTokens: 400,
+          maxTokens: 1200,
           messages: [{ role: "system", content: planPrompt(business) }, ...history, { role: "user", content: founderText }],
           signal: req.signal,
         });
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
             send({ type: "status", role: t.role, status: "working" });
             const text = await groqChat({
               model: MODELS.specialist,
-              maxTokens: 350,
+              maxTokens: 1000,
               messages: [
                 { role: "system", content: specialistPrompt(t.role, business) },
                 { role: "user", content: `Founder's message: ${founderText}\n\nYour task from the Strategist: ${t.task}` },
@@ -94,7 +94,7 @@ export async function POST(req: Request) {
         const finalRaw = await groqChat({
           model: MODELS.strategist,
           json: true,
-          maxTokens: 900,
+          maxTokens: 2000,
           messages: [
             { role: "system", content: finalPrompt(business) },
             ...history,

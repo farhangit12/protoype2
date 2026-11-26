@@ -16,10 +16,17 @@ export interface ChatMessage {
 
 const BASE_URL = process.env.GROQ_BASE_URL || "https://api.groq.com/openai/v1";
 
+// Groq shut down llama-3.3-70b-versatile and llama-3.1-8b-instant on 16 Aug 2026 and
+// recommends these replacements (console.groq.com/docs/deprecations).
 export const MODELS = {
-  strategist: process.env.GROQ_STRATEGIST_MODEL || "llama-3.3-70b-versatile",
-  specialist: process.env.GROQ_SPECIALIST_MODEL || "llama-3.1-8b-instant",
+  strategist: process.env.GROQ_STRATEGIST_MODEL || "openai/gpt-oss-120b",
+  specialist: process.env.GROQ_SPECIALIST_MODEL || "openai/gpt-oss-20b",
 };
+
+/** gpt-oss models think before answering; keep that short and out of the reply. */
+function reasoningOptions(model: string): Record<string, unknown> {
+  return model.startsWith("openai/gpt-oss") ? { reasoning_effort: "low", include_reasoning: false } : {};
+}
 
 /** One chat completion on Groq's OpenAI-compatible API. Server only: the key never reaches the browser. */
 export async function groqChat(opts: {
@@ -33,18 +40,25 @@ export async function groqChat(opts: {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new GroqError("GROQ_API_KEY is not set on the server.", 500);
 
-  const res = await fetch(`${BASE_URL}/chat/completions`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: opts.model,
-      messages: opts.messages,
-      max_tokens: opts.maxTokens ?? 700,
-      temperature: opts.temperature ?? 0.3,
-      ...(opts.json ? { response_format: { type: "json_object" } } : {}),
-    }),
-    signal: opts.signal,
-  });
+  const send = (json: boolean) =>
+    fetch(`${BASE_URL}/chat/completions`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: opts.model,
+        messages: opts.messages,
+        // Reasoning models spend part of this budget thinking, so it is generous.
+        max_completion_tokens: opts.maxTokens ?? 1500,
+        temperature: opts.temperature ?? 0.3,
+        ...reasoningOptions(opts.model),
+        ...(json ? { response_format: { type: "json_object" } } : {}),
+      }),
+      signal: opts.signal,
+    });
+
+  let res = await send(Boolean(opts.json));
+  // If a model rejects JSON mode, ask again without it; replies are parsed leniently anyway.
+  if (res.status === 400 && opts.json) res = await send(false);
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
